@@ -502,8 +502,6 @@ public:
 #undef VISITCOMP
 
   mlir::Value VisitBinAssign(const BinaryOperator *E);
-  mlir::Value VisitBinLAnd(const BinaryOperator *E) { llvm_unreachable("NYI"); }
-  mlir::Value VisitBinLOr(const BinaryOperator *E) { llvm_unreachable("NYI"); }
   mlir::Value VisitBinComma(const BinaryOperator *E) {
     CGF.buildIgnoredExpr(E->getLHS());
     // NOTE: We don't need to EnsureInsertPoint() like LLVM codegen.
@@ -655,6 +653,16 @@ public:
         CGF.getLoc(Ops.Loc), CGF.getCIRType(Ops.Ty), mlir::cir::BinOpKind::Or,
         Ops.LHS, Ops.RHS);
   }
+  mlir::Value buildLAnd(const BinOpInfo &Ops) {
+    return Builder.create<mlir::cir::BinOp>(
+        CGF.getLoc(Ops.Loc), CGF.getCIRType(Ops.Ty), mlir::cir::BinOpKind::LAnd,
+        Ops.LHS, Ops.RHS);
+  }
+  mlir::Value buildLOr(const BinOpInfo &Ops) {
+    return Builder.create<mlir::cir::BinOp>(
+        CGF.getLoc(Ops.Loc), CGF.getCIRType(Ops.Ty), mlir::cir::BinOpKind::LOr,
+        Ops.LHS, Ops.RHS);
+  }
 
   LValue buildCompoundAssignLValue(
       const CompoundAssignOperator *E,
@@ -694,6 +702,8 @@ public:
   HANDLEBINOP(And)
   HANDLEBINOP(Xor)
   HANDLEBINOP(Or)
+  HANDLEBINOP(LAnd)
+  HANDLEBINOP(LOr)
 #undef HANDLEBINOP
 
   mlir::Value buildCmp(const BinaryOperator *E) {
@@ -1215,7 +1225,17 @@ mlir::Value ScalarExprEmitter::buildScalarCast(
     llvm_unreachable("NYI");
   }
 
-  if (DstElementTy.isa<mlir::IntegerType>()) {
+  if (auto intType = DstElementTy.dyn_cast<mlir::IntegerType>()) {
+    if (mlir::isa<mlir::cir::BoolType>(SrcElementTy)) {
+      auto cast = Builder.create<mlir::cir::CastOp>(
+          Src.getLoc(), Builder.getIntegerType(1),
+          mlir::cir::CastKind::bool_to_sint, Src);
+      if (intType.getWidth() == 1)
+        return cast;
+      return Builder.create<mlir::cir::CastOp>(
+          Src.getLoc(), intType, mlir::cir::CastKind::integral, cast);
+    }
+
     llvm_unreachable("NYI");
   }
 

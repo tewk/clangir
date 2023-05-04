@@ -12,6 +12,8 @@ void b0(int a, int b) {
   x = x & b;
   x = x ^ b;
   x = x | b;
+  x = x && b;
+  x = x || b;
 }
 
 // CHECK: = cir.binop(mul, %3, %4) : i32
@@ -24,3 +26,5 @@ void b0(int a, int b) {
 // CHECK: = cir.binop(and, %24, %25) : i32
 // CHECK: = cir.binop(xor, %27, %28) : i32
 // CHECK: = cir.binop(or, %30, %31) : i32
+// CHECK: = cir.binop(land, %34, %36) : !cir.bool
+// CHECK: = cir.binop(lor, %41, %43) : !cir.bool

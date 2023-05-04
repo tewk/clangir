@@ -271,6 +271,18 @@ LogicalResult CastOp::verify() {
       return emitOpError() << "requries floating for source and result";
     return success();
   }
+  case cir::CastKind::bool_to_sint: {
+    if (!srcType.dyn_cast<mlir::cir::BoolType>())
+      return emitOpError() << "requires cir.bool type for source";
+    auto intTy = resType.dyn_cast<mlir::IntegerType>();
+    if (!intTy)
+      return emitOpError() << "requires IntegerType for result";
+    if (intTy.isUnsigned())
+      return emitOpError() << "requires signed IntegerType for result";
+    if (intTy.getWidth() != 1)
+      return emitOpError() << "requires 1-bit IntegerType for result";
+    return success();
+  }
   }
 
   llvm_unreachable("Unknown CastOp kind?");

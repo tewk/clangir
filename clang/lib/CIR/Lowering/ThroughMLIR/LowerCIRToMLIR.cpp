@@ -344,6 +344,9 @@ public:
       else
         llvm_unreachable("integer type not supported in CIR yet");
       break;
+    case mlir::cir::BinOpKind::LAnd:
+    case mlir::cir::BinOpKind::LOr:
+      llvm_unreachable_internal("NYI");
     }
 
     return mlir::LogicalResult::success();

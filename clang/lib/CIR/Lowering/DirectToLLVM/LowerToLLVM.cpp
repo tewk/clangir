@@ -230,6 +230,18 @@ public:
       }
       break;
     }
+    case mlir::cir::CastKind::bool_to_sint: {
+      auto sourceValue = adaptor.getOperands().front();
+      auto targetType = rewriter.getI1Type();
+      if (sourceValue.getType() == targetType) {
+        castOp.getResult().replaceAllUsesWith(sourceValue);
+        rewriter.eraseOp(castOp);
+      } else {
+        rewriter.replaceOpWithNewOp<mlir::LLVM::TruncOp>(castOp, targetType,
+                                                         sourceValue);
+      }
+      break;
+    }
     default:
       llvm_unreachable("NYI");
     }
@@ -727,7 +739,8 @@ public:
     assert((op.getLhs().getType() == op.getRhs().getType()) &&
            "inconsistent operands' types not supported yet");
     mlir::Type type = op.getRhs().getType();
-    assert((type.isa<mlir::IntegerType>() || type.isa<mlir::FloatType>()) &&
+    assert((type.isa<mlir::IntegerType>() || type.isa<mlir::FloatType>() ||
+            type.isa<mlir::cir::BoolType>()) &&
            "operand type not supported yet");
 
     switch (op.getKind()) {
@@ -799,6 +812,64 @@ public:
             op, op.getType(), op.getLhs(), op.getRhs());
       else
         llvm_unreachable("integer type not supported in CIR yet");
+      break;
+    case mlir::cir::BinOpKind::LAnd:
+    case mlir::cir::BinOpKind::LOr:
+      rewriter.setInsertionPoint(op);
+      auto *currentBlock = rewriter.getInsertionBlock();
+      auto *secondBlock =
+          rewriter.splitBlock(currentBlock, rewriter.getInsertionPoint());
+      auto *firstBlock = rewriter.createBlock(secondBlock);
+
+      auto lhs = op.getLhs();
+      auto rhs = op.getRhs();
+
+      rewriter.setInsertionPointToEnd(currentBlock);
+      auto cmpType = rewriter.getI1Type();
+      auto zero =
+          rewriter.create<mlir::LLVM::ConstantOp>(op.getLoc(), cmpType, 0);
+      auto one =
+          rewriter.create<mlir::LLVM::ConstantOp>(op.getLoc(), cmpType, 1);
+      mlir::Block *trueBlock, *falseBlock;
+      mlir::ValueRange trueArgs, falseArgs;
+      if (op.getKind() == mlir::cir::BinOpKind::LAnd) {
+        trueBlock = firstBlock;
+        falseBlock = secondBlock;
+        falseArgs = {zero};
+      } else {
+        trueBlock = secondBlock;
+        falseBlock = firstBlock;
+        trueArgs = {one};
+      }
+
+      if (lhs.getType() != cmpType) {
+        auto castKind = isa<mlir::cir::BoolType>(lhs.getType())
+                            ? mlir::cir::CastKind::bool_to_sint
+                            : mlir::cir::CastKind::integral;
+        lhs = rewriter.create<mlir::cir::CastOp>(op.getLoc(), cmpType, castKind,
+                                                 lhs);
+      }
+      auto icmpLhs = rewriter.create<mlir::LLVM::ICmpOp>(
+          op->getLoc(), cmpType, mlir::LLVM::ICmpPredicate::ne, lhs, zero);
+      rewriter.create<mlir::LLVM::CondBrOp>(op->getLoc(), icmpLhs, trueBlock,
+                                            trueArgs, falseBlock, falseArgs);
+
+      rewriter.setInsertionPointToEnd(firstBlock);
+      if (rhs.getType() != cmpType) {
+        auto castKind = isa<mlir::cir::BoolType>(rhs.getType())
+                            ? mlir::cir::CastKind::bool_to_sint
+                            : mlir::cir::CastKind::integral;
+        rhs = rewriter.create<mlir::cir::CastOp>(op.getLoc(), cmpType, castKind,
+                                                 rhs);
+      }
+      auto icmpRhs = rewriter.create<mlir::LLVM::ICmpOp>(
+          op->getLoc(), cmpType, mlir::LLVM::ICmpPredicate::ne, rhs, zero);
+      rewriter.create<mlir::LLVM::BrOp>(op->getLoc(), mlir::ValueRange{icmpRhs},
+                                        secondBlock);
+
+      auto res = secondBlock->addArgument(cmpType, op.getLoc());
+      op.getResult().replaceAllUsesWith(res);
+      rewriter.eraseOp(op);
       break;
     }
 

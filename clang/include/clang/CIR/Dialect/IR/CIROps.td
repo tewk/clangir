@@ -46,12 +46,13 @@ def CK_ArrayToPointerDecay : I32EnumAttrCase<"array_to_ptrdecay", 2>;
 def CK_IntegralCast : I32EnumAttrCase<"integral", 3>;
 def CK_BitCast : I32EnumAttrCase<"bitcast", 4>;
 def CK_FloatingCast : I32EnumAttrCase<"floating", 5>;
+def CK_BooleanToSignedIntegral : I32EnumAttrCase<"bool_to_sint", 6>;
 
 def CastKind : I32EnumAttr<
     "CastKind",
     "cast kind",
     [CK_IntegralToBoolean, CK_ArrayToPointerDecay, CK_IntegralCast,
-     CK_BitCast, CK_FloatingCast]> {
+     CK_BitCast, CK_FloatingCast, CK_BooleanToSignedIntegral]> {
   let cppNamespace = "::mlir::cir";
 }
 
@@ -630,16 +631,18 @@ def UnaryOp : CIR_Op<"unary", [Pure, SameOperandsAndResultType]> {
 //===----------------------------------------------------------------------===//
 
 // FIXME: represent Commutative, Idempotent traits for appropriate binops
-def BinOpKind_Mul : I32EnumAttrCase<"Mul", 1, "mul">;
-def BinOpKind_Div : I32EnumAttrCase<"Div", 2, "div">;
-def BinOpKind_Rem : I32EnumAttrCase<"Rem", 3, "rem">;
-def BinOpKind_Add : I32EnumAttrCase<"Add", 4, "add">;
-def BinOpKind_Sub : I32EnumAttrCase<"Sub", 5, "sub">;
-def BinOpKind_Shl : I32EnumAttrCase<"Shl", 6, "shl">;
-def BinOpKind_Shr : I32EnumAttrCase<"Shr", 7, "shr">;
-def BinOpKind_And : I32EnumAttrCase<"And", 8, "and">;
-def BinOpKind_Xor : I32EnumAttrCase<"Xor", 9, "xor">;
-def BinOpKind_Or  : I32EnumAttrCase<"Or", 10, "or">;
+def BinOpKind_Mul  : I32EnumAttrCase<"Mul", 1, "mul">;
+def BinOpKind_Div  : I32EnumAttrCase<"Div", 2, "div">;
+def BinOpKind_Rem  : I32EnumAttrCase<"Rem", 3, "rem">;
+def BinOpKind_Add  : I32EnumAttrCase<"Add", 4, "add">;
+def BinOpKind_Sub  : I32EnumAttrCase<"Sub", 5, "sub">;
+def BinOpKind_Shl  : I32EnumAttrCase<"Shl", 6, "shl">;
+def BinOpKind_Shr  : I32EnumAttrCase<"Shr", 7, "shr">;
+def BinOpKind_And  : I32EnumAttrCase<"And", 8, "and">;
+def BinOpKind_Xor  : I32EnumAttrCase<"Xor", 9, "xor">;
+def BinOpKind_Or   : I32EnumAttrCase<"Or", 10, "or">;
+def BinOpKind_LAnd : I32EnumAttrCase<"LAnd", 11, "land">;
+def BinOpKind_LOr  : I32EnumAttrCase<"LOr", 12, "lor">;
 
 def BinOpKind : I32EnumAttr<
     "BinOpKind",
@@ -647,7 +650,7 @@ def BinOpKind : I32EnumAttr<
     [BinOpKind_Mul, BinOpKind_Div, BinOpKind_Rem,
      BinOpKind_Add, BinOpKind_Sub, BinOpKind_Shl,
      BinOpKind_Shr, BinOpKind_And, BinOpKind_Xor,
-     BinOpKind_Or]> {
+     BinOpKind_Or,  BinOpKind_LAnd, BinOpKind_LOr]> {
   let cppNamespace = "::mlir::cir";
 }
 

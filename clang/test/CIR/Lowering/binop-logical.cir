@@ -1,0 +1,64 @@
+// RUN: cir-tool %s -cir-to-llvm -o - | FileCheck %s -check-prefix=MLIR
+// RUN: cir-tool %s -cir-to-llvm -o - | mlir-translate -mlir-to-llvmir | FileCheck %s -check-prefix=LLVM
+
+module {
+  cir.func @_Z3foov() {
+    %0 = cir.alloca i32, cir.ptr <i32>, ["a"] {alignment = 4 : i64}
+    %1 = cir.alloca i32, cir.ptr <i32>, ["b"] {alignment = 4 : i64}
+    %2 = cir.alloca i32, cir.ptr <i32>, ["x"] {alignment = 4 : i64}
+    %3 = cir.load %0 : cir.ptr <i32>, i32
+    %4 = cir.cast(int_to_bool, %3 : i32), !cir.bool
+    %5 = cir.load %1 : cir.ptr <i32>, i32
+    %6 = cir.cast(int_to_bool, %5 : i32), !cir.bool
+    %7 = cir.binop(land, %4, %6) : !cir.bool
+    %8 = cir.cast(bool_to_sint, %7 : !cir.bool), i1
+    %9 = cir.cast(integral, %8 : i1), i32
+    cir.store %9, %2 : i32, cir.ptr <i32>
+    %10 = cir.load %0 : cir.ptr <i32>, i32
+    %11 = cir.cast(int_to_bool, %10 : i32), !cir.bool
+    %12 = cir.load %1 : cir.ptr <i32>, i32
+    %13 = cir.cast(int_to_bool, %12 : i32), !cir.bool
+    %14 = cir.binop(lor, %11, %13) : !cir.bool
+    %15 = cir.cast(bool_to_sint, %14 : !cir.bool), i1
+    %16 = cir.cast(integral, %15 : i1), i32
+    cir.store %16, %2 : i32, cir.ptr <i32>
+    cir.return
+  }
+}
+
+// MLIR:     %17 = llvm.icmp "ne" %16, %14 : i1
+// MLIR-NEXT:     llvm.cond_br %17, ^bb1, ^bb2(%14 : i1)
+// MLIR-NEXT:   ^bb1:  // pred: ^bb0
+// MLIR-NEXT:     %18 = llvm.trunc %13 : i8 to i1
+// MLIR-NEXT:     %19 = llvm.icmp "ne" %18, %14 : i1
+// MLIR-NEXT:     llvm.br ^bb2(%19 : i1)
+// MLIR-NEXT:   ^bb2(%20: i1):  // 2 preds: ^bb0, ^bb1
+// MLIR:     %33 = llvm.icmp "ne" %32, %30 : i1
+// MLIR-NEXT:     llvm.cond_br %33, ^bb4(%31 : i1), ^bb3
+// MLIR-NEXT:   ^bb3:  // pred: ^bb2
+// MLIR-NEXT:     %34 = llvm.trunc %29 : i8 to i1
+// MLIR-NEXT:     %35 = llvm.icmp "ne" %34, %30 : i1
+// MLIR-NEXT:     llvm.br ^bb4(%35 : i1)
+// MLIR-NEXT:   ^bb4(%36: i1):  // 2 preds: ^bb2, ^bb3
+
+// LLVM:   %11 = icmp ne i1 %10, false
+// LLVM-NEXT:   br i1 %11, label %12, label %15
+// LLVM-EMPTY:
+// LLVM-NEXT: 12:                                               ; preds = %0
+// LLVM-NEXT:   %13 = trunc i8 %9 to i1
+// LLVM-NEXT:   %14 = icmp ne i1 %13, false
+// LLVM-NEXT:   br label %15
+// LLVM-EMPTY:
+// LLVM-NEXT: 15:                                               ; preds = %12, %0
+// LLVM-NEXT:   %16 = phi i1 [ %14, %12 ], [ false, %0 ]
+
+// LLVM:   %25 = icmp ne i1 %24, false
+// LLVM-NEXT:   br i1 %25, label %29, label %26
+// LLVM-EMPTY:
+// LLVM-NEXT: 26:                                               ; preds = %15
+// LLVM-NEXT:   %27 = trunc i8 %23 to i1
+// LLVM-NEXT:   %28 = icmp ne i1 %27, false
+// LLVM-NEXT:   br label %29
+// LLVM-EMPTY:
+// LLVM-NEXT: 29:                                               ; preds = %26, %15
+// LLVM-NEXT:   %30 = phi i1 [ %28, %26 ], [ true, %15 ]
